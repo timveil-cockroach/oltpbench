@@ -16,15 +16,6 @@
 
 package com.oltpbenchmark.benchmarks.seats;
 
-import java.io.File;
-import java.io.IOException;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
-
 import com.oltpbenchmark.WorkloadConfiguration;
 import com.oltpbenchmark.api.BenchmarkModule;
 import com.oltpbenchmark.api.Loader;
@@ -32,6 +23,14 @@ import com.oltpbenchmark.api.Worker;
 import com.oltpbenchmark.benchmarks.seats.procedures.LoadConfig;
 import com.oltpbenchmark.catalog.Table;
 import com.oltpbenchmark.util.RandomGenerator;
+
+import java.io.File;
+import java.io.IOException;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class SEATSBenchmark extends BenchmarkModule {
 
@@ -63,33 +62,31 @@ public class SEATSBenchmark extends BenchmarkModule {
         return (LoadConfig.class.getPackage());
     }
 
-    @Override
-    protected List<Worker<? extends BenchmarkModule>> makeWorkersImpl(boolean verbose) throws IOException {
-        List<Worker<? extends BenchmarkModule>> workers = new ArrayList<Worker<? extends BenchmarkModule>>();
-        for (int i = 0; i < this.workConf.getTerminals(); ++i) {
-            workers.add(new SEATSWorker(this, i));
-        } // FOR
-        return (workers);
-    }
-
-    @Override
-    protected Loader<SEATSBenchmark> makeLoaderImpl(Connection conn) throws SQLException {
-        return new SEATSLoader(this, conn);
-    }
-
-    /**
-     * Return the path of the CSV file that has data for the given Table catalog
-     * handle
-     * 
-     * @param data_dir
-     * @param catalog_tbl
-     * @return
-     */
-    public static final File getTableDataFile(File data_dir, Table catalog_tbl) {
-        File f = new File(String.format("%s%stable.%s.csv", data_dir.getAbsolutePath(), File.separator, catalog_tbl.getName().toLowerCase()));
-        if (f.exists() == false) {
-            f = new File(f.getAbsolutePath() + ".gz");
-        }
-        return (f);
-    }
+	@Override
+	protected List<Worker<? extends BenchmarkModule>> makeWorkersImpl(boolean verbose) throws IOException {
+		List<Worker<? extends BenchmarkModule>> workers = new ArrayList<Worker<? extends BenchmarkModule>>();
+		for (int i = 0; i < workConf.getTerminals(); ++i) {
+			workers.add(new SEATSWorker(this, i));
+		} // FOR
+		return (workers);
+	}
+	
+	@Override
+	protected Loader<SEATSBenchmark> makeLoaderImpl() throws SQLException {
+		return new SEATSLoader(this);
+	}
+	
+	/**
+	 * Return the path of the CSV file that has data for the given Table catalog handle
+	 * @param data_dir
+	 * @param catalog_tbl
+	 * @return
+	 */
+	public static final File getTableDataFile(File data_dir, Table catalog_tbl) {
+	    File f = new File(String.format("%s%stable.%s.csv", data_dir.getAbsolutePath(),
+	                                                        File.separator,
+	                                                        catalog_tbl.getName().toLowerCase()));
+	    if (f.exists() == false) f = new File(f.getAbsolutePath() + ".gz");
+	    return (f);
+	}
 }

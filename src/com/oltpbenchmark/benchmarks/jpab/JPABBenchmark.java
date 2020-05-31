@@ -16,21 +16,19 @@
 
 package com.oltpbenchmark.benchmarks.jpab;
 
-import java.io.IOException;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
-
-import javax.persistence.EntityManagerFactory;
-import javax.persistence.Persistence;
-
 import com.oltpbenchmark.WorkloadConfiguration;
 import com.oltpbenchmark.api.BenchmarkModule;
 import com.oltpbenchmark.api.Loader;
 import com.oltpbenchmark.api.Worker;
 import com.oltpbenchmark.benchmarks.jpab.procedures.Persist;
 import com.oltpbenchmark.benchmarks.jpab.tests.Test;
+
+import javax.persistence.EntityManagerFactory;
+import javax.persistence.Persistence;
+import java.io.IOException;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class JPABBenchmark extends BenchmarkModule {
 
@@ -69,8 +67,8 @@ public class JPABBenchmark extends BenchmarkModule {
     }
 
     @Override
-    protected Loader<JPABBenchmark> makeLoaderImpl(Connection conn) throws SQLException {
-        return new JPABLoader(this, conn, jpabConf.getPersistanceUnit());
+    protected Loader<JPABBenchmark> makeLoaderImpl() throws SQLException {
+        return new JPABLoader(this, jpabConf.getPersistanceUnit());
     }
 
     @Override

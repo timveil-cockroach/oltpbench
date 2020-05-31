@@ -17,22 +17,18 @@
 
 package com.oltpbenchmark.benchmarks.tpcc;
 
-import java.io.IOException;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.Timestamp;
-import java.util.ArrayList;
-import java.util.List;
-
-import org.apache.log4j.Logger;
-
-
 import com.oltpbenchmark.WorkloadConfiguration;
 import com.oltpbenchmark.api.BenchmarkModule;
 import com.oltpbenchmark.api.Loader;
 import com.oltpbenchmark.api.Worker;
 import com.oltpbenchmark.benchmarks.tpcc.procedures.NewOrder;
-import com.oltpbenchmark.types.DatabaseType;
+import org.apache.log4j.Logger;
+
+import java.io.IOException;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.List;
 
 public class TPCCBenchmark extends BenchmarkModule {
     private static final Logger LOG = Logger.getLogger(TPCCBenchmark.class);
@@ -64,8 +60,8 @@ public class TPCCBenchmark extends BenchmarkModule {
 	}
 
 	@Override
-	protected Loader<TPCCBenchmark> makeLoaderImpl(Connection conn) throws SQLException {
-		return new TPCCLoader(this, conn);
+	protected Loader<TPCCBenchmark> makeLoaderImpl() throws SQLException {
+		return new TPCCLoader(this);
 	}
 
 	protected ArrayList<TPCCWorker> createTerminals() throws SQLException {
@@ -143,13 +139,9 @@ public class TPCCBenchmark extends BenchmarkModule {
     public Timestamp getTimestamp(long time) {
         Timestamp timestamp;
         
-        // HACK: Peloton doesn't support JDBC timestamps.
-        // We have to use the postgres-specific type
-        if (this.workConf.getDBType() == DatabaseType.PELOTON) {
-            timestamp = new org.postgresql.util.PGTimestamp(time);
-        } else {
-            timestamp = new java.sql.Timestamp(time);
-        }
+	// 2020-03-03: I am no longer aware of any DBMS that needs a specialized data type for timestamps.
+        timestamp = new java.sql.Timestamp(time);
+        
         return (timestamp);
     }
 

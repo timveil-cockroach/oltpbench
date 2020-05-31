@@ -16,19 +16,18 @@
 
 package com.oltpbenchmark.benchmarks.tpcc.procedures;
 
+import com.oltpbenchmark.api.SQLStmt;
+import com.oltpbenchmark.benchmarks.tpcc.TPCCConfig;
+import com.oltpbenchmark.benchmarks.tpcc.TPCCConstants;
+import com.oltpbenchmark.benchmarks.tpcc.TPCCUtil;
+import com.oltpbenchmark.benchmarks.tpcc.TPCCWorker;
+import org.apache.log4j.Logger;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Random;
-
-import org.apache.log4j.Logger;
-
-import com.oltpbenchmark.api.SQLStmt;
-import com.oltpbenchmark.benchmarks.tpcc.TPCCConstants;
-import com.oltpbenchmark.benchmarks.tpcc.TPCCUtil;
-import com.oltpbenchmark.benchmarks.tpcc.TPCCWorker;
-import com.oltpbenchmark.benchmarks.tpcc.TPCCConfig;
 
 public class NewOrder extends TPCCProcedure {
 
@@ -335,8 +334,8 @@ public class NewOrder extends TPCCProcedure {
 				orderLineAmounts[ol_number - 1] = ol_amount;
 				total_amount += ol_amount;
 
-				if (i_data.indexOf("GENERIC") != -1
-						&& s_data.indexOf("GENERIC") != -1) {
+				if (i_data.indexOf("ORIGINAL") != -1
+						&& s_data.indexOf("ORIGINAL") != -1) {
 					brandGeneric[ol_number - 1] = 'B';
 				} else {
 					brandGeneric[ol_number - 1] = 'G';

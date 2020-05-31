@@ -34,23 +34,16 @@ package com.oltpbenchmark.benchmarks.tpcc;
  *
  */
 
-import java.sql.BatchUpdateException;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
-import java.sql.Timestamp;
-import java.sql.Types;
+import com.oltpbenchmark.api.Loader;
+import com.oltpbenchmark.benchmarks.tpcc.pojo.*;
+import com.oltpbenchmark.catalog.Table;
+import com.oltpbenchmark.util.SQLUtil;
+import org.apache.log4j.Logger;
+
+import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
-
-import org.apache.log4j.Logger;
-
-import com.oltpbenchmark.api.Loader;
-import com.oltpbenchmark.benchmarks.tpcc.pojo.*;
-import com.oltpbenchmark.benchmarks.tpcc.TPCCConfig;
-import com.oltpbenchmark.catalog.Table;
-import com.oltpbenchmark.util.SQLUtil;
 
 /**
  * TPC-C Benchmark Loader
@@ -58,8 +51,8 @@ import com.oltpbenchmark.util.SQLUtil;
 public class TPCCLoader extends Loader<TPCCBenchmark> {
     private static final Logger LOG = Logger.getLogger(TPCCLoader.class);
 
-    public TPCCLoader(TPCCBenchmark benchmark, Connection c) {
-        super(benchmark, c);
+    public TPCCLoader(TPCCBenchmark benchmark) {
+        super(benchmark);
         numWarehouses = (int)Math.round(TPCCConfig.configWhseCount * this.scaleFactor);
         if (numWarehouses <= 0) {
             //where would be fun in that?

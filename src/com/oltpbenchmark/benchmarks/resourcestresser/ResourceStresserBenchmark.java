@@ -17,20 +17,17 @@
 
 package com.oltpbenchmark.benchmarks.resourcestresser;
 
-import java.io.IOException;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
-
-import org.apache.log4j.Logger;
-
 import com.oltpbenchmark.WorkloadConfiguration;
 import com.oltpbenchmark.api.BenchmarkModule;
 import com.oltpbenchmark.api.Loader;
-import com.oltpbenchmark.api.Procedure;
 import com.oltpbenchmark.api.Worker;
 import com.oltpbenchmark.benchmarks.resourcestresser.procedures.CPU1;
+import org.apache.log4j.Logger;
+
+import java.io.IOException;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ResourceStresserBenchmark extends BenchmarkModule {
 	private static final Logger LOG = Logger.getLogger(ResourceStresserBenchmark.class);
@@ -59,7 +56,7 @@ public class ResourceStresserBenchmark extends BenchmarkModule {
 	}
 	
 	@Override
-	protected Loader<ResourceStresserBenchmark> makeLoaderImpl(Connection conn) throws SQLException {
-		return new ResourceStresserLoader(this, conn);
+	protected Loader<ResourceStresserBenchmark> makeLoaderImpl() throws SQLException {
+		return new ResourceStresserLoader(this);
 	}
 }

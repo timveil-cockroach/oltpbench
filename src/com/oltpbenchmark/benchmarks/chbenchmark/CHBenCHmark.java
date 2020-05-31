@@ -17,20 +17,20 @@
 package com.oltpbenchmark.benchmarks.chbenchmark;
 
 
-import java.io.IOException;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
-
-import org.apache.log4j.Logger;
-
 import com.oltpbenchmark.WorkloadConfiguration;
 import com.oltpbenchmark.api.BenchmarkModule;
 import com.oltpbenchmark.api.Loader;
 import com.oltpbenchmark.api.Worker;
-import com.oltpbenchmark.benchmarks.chbenchmark.queries.Q1;
-import com.oltpbenchmark.benchmarks.tpcc.TPCCConfig;
+import com.oltpbenchmark.benchmarks.chbenchmark.queries.Q15;
+import com.oltpbenchmark.util.ClassUtil;
+import org.apache.log4j.Logger;
+
+import java.io.IOException;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
 
 public class CHBenCHmark extends BenchmarkModule {
 	private static final Logger LOG = Logger.getLogger(CHBenCHmark.class);
@@ -40,7 +40,7 @@ public class CHBenCHmark extends BenchmarkModule {
 	}
 	
 	protected Package getProcedurePackageImpl() {
-		return (Q1.class.getPackage());
+		return (Q15.class.getPackage());
 	}
 	
 	/**
@@ -48,19 +48,40 @@ public class CHBenCHmark extends BenchmarkModule {
 	 */
 	@Override
 	protected List<Worker<? extends BenchmarkModule>> makeWorkersImpl(boolean verbose) throws IOException {
+        // Drop any existing views from past benchmark executions
+        tryDropOldViews();
+
 		// HACK: Turn off terminal messages
 		List<Worker<? extends BenchmarkModule>> workers = new ArrayList<Worker<? extends BenchmarkModule>>();
 
 		int numTerminals = workConf.getTerminals();
-		LOG.info(String.format("Creating %d workers for CHBenCHMark", numTerminals));
+        LOG.debug(String.format("Creating %d workers for CHBenCHMark", numTerminals));
         for (int i = 0; i < numTerminals; i++)
             workers.add(new CHBenCHmarkWorker(this, i));
 
 		return workers;
 	}
 	
-	protected Loader<CHBenCHmark> makeLoaderImpl(Connection conn) throws SQLException {
-		return new CHBenCHmarkLoader(this, conn);
+	protected Loader<CHBenCHmark> makeLoaderImpl() throws SQLException {
+		return new CHBenCHmarkLoader(this);
 	}
+
+    private void tryDropOldViews() {
+        Q15 query = (Q15)ClassUtil.newInstance(Q15.class, new Object[0], new Class<?>[0]);
+        Connection conn = null;
+        try {
+            conn = makeConnection();
+            Statement stmt = conn.createStatement();
+            stmt.executeUpdate(query.dropview_stmt.getSQL());
+        } catch (SQLException ex) {
+        } finally {
+            if (conn != null) {
+                try {
+                    conn.close();
+                } catch (SQLException ex) {
+                }
+            }
+        }
+    }
 	
 }

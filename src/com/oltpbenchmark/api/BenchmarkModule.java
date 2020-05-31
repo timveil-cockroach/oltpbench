@@ -17,22 +17,6 @@
 
 package com.oltpbenchmark.api;
 
-import java.io.File;
-import java.io.IOException;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
-import java.util.Set;
-
-import org.apache.log4j.Logger;
-
 import com.oltpbenchmark.WorkloadConfiguration;
 import com.oltpbenchmark.api.Loader.LoaderThread;
 import com.oltpbenchmark.catalog.Catalog;
@@ -41,6 +25,16 @@ import com.oltpbenchmark.types.DatabaseType;
 import com.oltpbenchmark.util.ClassUtil;
 import com.oltpbenchmark.util.ScriptRunner;
 import com.oltpbenchmark.util.ThreadUtil;
+import org.apache.log4j.Logger;
+
+import java.io.File;
+import java.io.IOException;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.util.*;
 
 /**
  * Base class for all benchmark implementations
@@ -91,12 +85,6 @@ public abstract class BenchmarkModule {
      */
     private final Random rng = new Random();
 
-    /**
-     * Whether to use verbose output messages
-     * @deprecated
-     */
-    protected boolean verbose;
-
     public BenchmarkModule(String benchmarkName, WorkloadConfiguration workConf, boolean withCatalog) {
         assert (workConf != null) : "The WorkloadConfiguration instance is null.";
 
@@ -142,13 +130,10 @@ public abstract class BenchmarkModule {
      * configured for you, and the base class will commit+close it once this
      * method returns
      * 
-     * @param conn
-     *            TODO
      * @return TODO
      * @throws SQLException
-     *             TODO
      */
-    protected abstract Loader<? extends BenchmarkModule> makeLoaderImpl(Connection conn) throws SQLException;
+    protected abstract Loader<? extends BenchmarkModule> makeLoaderImpl() throws SQLException;
 
     /**
      * @param txns
@@ -293,53 +278,31 @@ public abstract class BenchmarkModule {
     }
 
     /**
-     * Invoke this benchmark's database loader
+     * Invoke this benchmark's database loader.
+     * We return the handle to Loader object that we created to do this.
+     * You probably don't need it and can simply ignore. There are some
+     * test cases that use it. That's why it's here.
+     * @return
      */
-    public final void loadDatabase() {
+    public final Loader<? extends BenchmarkModule> loadDatabase() {
+        Loader<? extends BenchmarkModule> loader = null;
         try {
-            Connection conn = this.makeConnection();
-            this.loadDatabase(conn);
-            conn.close();
-        } catch (SQLException ex) {
-            throw new RuntimeException(String.format("Unexpected error when trying to load the %s database", this.benchmarkName), ex);
-        }
-    }
-
-    /**
-     * Invoke this benchmark's database loader using the given Connection handle
-     * @param conn
-     */
-    protected final void loadDatabase(final Connection conn) {
-        try {
-            Loader<? extends BenchmarkModule> loader = this.makeLoaderImpl(conn);
+            loader = this.makeLoaderImpl();
             if (loader != null) {
-                conn.setAutoCommit(false);
-                
-                // PAVLO: 2016-12-23
-                // We are going to eventually migrate everything over to use the
-                // same API for creating multi-threaded loaders. For now we will support
-                // both. So if createLoaderTheads() returns null, we will use the old load()
-                // method.
                 List<? extends LoaderThread> loaderThreads = loader.createLoaderThreads();
                 if (loaderThreads != null) {
                     int maxConcurrent = workConf.getLoaderThreads();
-                    assert(maxConcurrent > 0);
+                    assert (maxConcurrent > 0);
                     if (LOG.isDebugEnabled())
                         LOG.debug(String.format("Starting %d %s.LoaderThreads [maxConcurrent=%d]",
-                                                loaderThreads.size(),
-                                                loader.getClass().getSimpleName(),
-                                                maxConcurrent));
+                                loaderThreads.size(),
+                                loader.getClass().getSimpleName(),
+                                maxConcurrent));
                     ThreadUtil.runNewPool(loaderThreads, maxConcurrent);
-                } else {
-                    if (LOG.isDebugEnabled())
-                        LOG.debug(String.format("Using legacy %s.load() method",
-                                                loader.getClass().getSimpleName()));
-                    loader.load();
-                }
-                conn.commit();
 
-                if (loader.getTableCounts().isEmpty() == false) {
-                    LOG.info("Table Counts:\n" + loader.getTableCounts());
+                    if (loader.getTableCounts().isEmpty() == false) {
+                        LOG.info("Table Counts:\n" + loader.getTableCounts());
+                    }
                 }
             }
         } catch (SQLException ex) {
@@ -350,19 +313,19 @@ public abstract class BenchmarkModule {
         if (LOG.isDebugEnabled())
             LOG.debug(String.format("Finished loading the %s database",
                                     this.getBenchmarkName().toUpperCase()));
+        return (loader);
     }
 
     /**
-     * @param DB_CONN
      * @throws SQLException
      */
     public final void clearDatabase() {
         try {
-            Connection conn = this.makeConnection();
-            Loader<? extends BenchmarkModule> loader = this.makeLoaderImpl(conn);
+            Loader<? extends BenchmarkModule> loader = this.makeLoaderImpl();
             if (loader != null) {
+                Connection conn = this.makeConnection();
                 conn.setAutoCommit(false);
-                loader.unload(this.catalog);
+                loader.unload(conn, this.catalog);
                 conn.commit();
             }
         } catch (SQLException ex) {

@@ -16,23 +16,7 @@
 
 package com.oltpbenchmark.api;
 
-import java.sql.Connection;
-import java.sql.Statement;
-import java.sql.SQLException;
-import java.sql.Savepoint;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Random;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import org.apache.log4j.Logger;
-
-import com.oltpbenchmark.LatencyRecord;
-import com.oltpbenchmark.Phase;
-import com.oltpbenchmark.SubmittedProcedure;
-import com.oltpbenchmark.WorkloadConfiguration;
-import com.oltpbenchmark.WorkloadState;
+import com.oltpbenchmark.*;
 import com.oltpbenchmark.api.Procedure.UserAbortException;
 import com.oltpbenchmark.catalog.Catalog;
 import com.oltpbenchmark.types.DatabaseType;
@@ -40,6 +24,17 @@ import com.oltpbenchmark.types.State;
 import com.oltpbenchmark.types.TransactionStatus;
 import com.oltpbenchmark.util.Histogram;
 import com.oltpbenchmark.util.StringUtil;
+import org.apache.log4j.Logger;
+
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Savepoint;
+import java.sql.Statement;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Random;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public abstract class Worker<T extends BenchmarkModule> implements Runnable {
     private static final Logger LOG = Logger.getLogger(Worker.class);
@@ -264,7 +259,7 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
 
             // Grab some work and update the state, in case it changed while we
             // waited.
-            pieceOfWork = wrkldState.fetchWork();
+            pieceOfWork = wrkldState.fetchWork(this.id);
             preState = wrkldState.getGlobalState();
 
             phase = this.wrkldState.getCurrentPhase();
@@ -515,7 +510,7 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
                             break;
                         case RETRY_DIFFERENT:
                             this.txnRetry.put(next);
-                            return null;
+                            break;
                         case USER_ABORTED:
                             this.txnAbort.put(next);
                             break;
@@ -536,7 +531,7 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
             // This *does not* incorrectly inflate our performance numbers.
             // It's more of a workaround for now until I can figure out how to do
             // this correctly in JDBC.
-            if (dbType == DatabaseType.PELOTON) {
+            if (dbType == DatabaseType.NOISEPAGE) {
                 msg += "\nBut we are not stopping because " + dbType + " cannot handle this correctly";
                 LOG.warn(msg);
             } else {

@@ -16,13 +16,11 @@
 
 package com.oltpbenchmark.benchmarks.noop;
 
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.util.List;
-
+import com.oltpbenchmark.api.Loader;
 import org.apache.log4j.Logger;
 
-import com.oltpbenchmark.api.Loader;
+import java.sql.SQLException;
+import java.util.List;
 
 /**
  * This doesn't load any data!
@@ -32,21 +30,16 @@ import com.oltpbenchmark.api.Loader;
 public class NoOpLoader extends Loader<NoOpBenchmark> {
     private static final Logger LOG = Logger.getLogger(NoOpLoader.class);
 
-    public NoOpLoader(NoOpBenchmark benchmark, Connection c) {
-        super(benchmark, c);
+    public NoOpLoader(NoOpBenchmark benchmark) {
+        super(benchmark);
     }
     
     @Override
     public List<LoaderThread> createLoaderThreads() throws SQLException {
-        // TODO Auto-generated method stub
-        return null;
-    }
-
-    @Override
-    public void load() throws SQLException {
         // Nothing to do
         if (LOG.isDebugEnabled())
             LOG.debug("No data is no loaded because there is no table!");
-        
+        return null;
     }
+
 }

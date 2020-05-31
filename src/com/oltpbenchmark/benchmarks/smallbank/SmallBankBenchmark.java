@@ -1,11 +1,5 @@
 package com.oltpbenchmark.benchmarks.smallbank;
 
-import java.io.IOException;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
-
 import com.oltpbenchmark.WorkloadConfiguration;
 import com.oltpbenchmark.api.BenchmarkModule;
 import com.oltpbenchmark.api.Loader;
@@ -14,6 +8,11 @@ import com.oltpbenchmark.benchmarks.smallbank.procedures.Amalgamate;
 import com.oltpbenchmark.catalog.Column;
 import com.oltpbenchmark.catalog.Table;
 import com.oltpbenchmark.util.SQLUtil;
+
+import java.io.IOException;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class SmallBankBenchmark extends BenchmarkModule {
 
@@ -34,8 +33,8 @@ public class SmallBankBenchmark extends BenchmarkModule {
     }
 
     @Override
-    protected Loader<SmallBankBenchmark> makeLoaderImpl(Connection conn) throws SQLException {
-        return new SmallBankLoader(this, conn);
+    protected Loader<SmallBankBenchmark> makeLoaderImpl() throws SQLException {
+        return new SmallBankLoader(this);
     }
 
     @Override

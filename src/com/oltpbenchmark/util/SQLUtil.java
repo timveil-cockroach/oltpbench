@@ -16,25 +16,18 @@
 
 package com.oltpbenchmark.util;
 
+import com.oltpbenchmark.catalog.Column;
+import com.oltpbenchmark.catalog.Table;
+import com.oltpbenchmark.types.DatabaseType;
+import org.apache.log4j.Logger;
+
 import java.math.BigDecimal;
-import java.sql.Date;
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
-import java.sql.SQLException;
-import java.sql.SQLIntegrityConstraintViolationException;
-import java.sql.Timestamp;
-import java.sql.Types;
+import java.sql.*;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.HashSet;
 import java.util.Set;
-
-import org.apache.log4j.Logger;
-
-import com.oltpbenchmark.catalog.Column;
-import com.oltpbenchmark.catalog.Table;
-import com.oltpbenchmark.types.DatabaseType;
 
 public abstract class SQLUtil {
     private static final Logger LOG = Logger.getLogger(SQLUtil.class);
@@ -330,6 +323,30 @@ public abstract class SQLUtil {
     }
 
     /**
+     * Automatically generate the 'INSERT' SQL string to insert
+     * one record into this table.
+     * @param dbType
+     * @param catalog_tbl
+     * @param exclude_columns
+     * @return
+     */
+    public static String getInsertSQL(DatabaseType dbType, Table catalog_tbl, int...exclude_columns) {
+        return getInsertSQL(catalog_tbl, false, dbType.shouldEscapeNames(), 1, exclude_columns);
+    }
+
+    /**
+     * Automatically generate the 'INSERT' SQL string to insert
+     * one record into this table, with a flag to escape names or not
+     *
+     * @param catalog_tbl Table affected
+     * @param escape_names Flag to escape object names
+     * @return
+     */
+    public static String getInsertSQL(Table catalog_tbl, boolean escape_names, int...exclude_columns) {
+        return getInsertSQL(catalog_tbl, false, escape_names, 1, exclude_columns);
+    }
+    
+    /**
      * Automatically generate the 'INSERT' SQL string for this table
      * with a batch size of 1
      *
@@ -339,7 +356,20 @@ public abstract class SQLUtil {
      * @return
      */
     public static String getInsertSQL(Table catalog_tbl, DatabaseType db_type, int... exclude_columns) {
-        return SQLUtil.getInsertSQL(catalog_tbl, db_type, 1, exclude_columns);
+        return SQLUtil.getInsertSQL(catalog_tbl, false, false, 1, exclude_columns);
+    }
+
+    /**
+     *
+     * @param catalog_tbl
+     * @param show_cols
+     * @param batchSize
+     * @param exclude_columns
+     * @return
+     */
+    @Deprecated
+    public static String getInsertSQL(Table catalog_tbl, boolean show_cols, int batchSize, int...exclude_columns) {
+        return getInsertSQL(catalog_tbl, false, true, batchSize, exclude_columns);
     }
 
     /**
@@ -353,10 +383,7 @@ public abstract class SQLUtil {
      * @param exclude_columns
      * @return
      */
-    public static String getInsertSQL(Table catalog_tbl, DatabaseType db_type, int batchSize, int... exclude_columns) {
-        boolean show_cols = db_type.shouldIncludeColumnNames();
-        boolean escape_names = db_type.shouldEscapeNames();
-
+    public static String getInsertSQL(Table catalog_tbl, boolean show_cols, boolean escape_names, int batchSize, int... exclude_columns) {
     	StringBuilder sb = new StringBuilder();
     	sb.append("INSERT INTO ")
     	  .append(escape_names ? catalog_tbl.getEscapedName() : catalog_tbl.getName());

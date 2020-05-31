@@ -26,24 +26,21 @@
 
 package com.oltpbenchmark.benchmarks.tpch;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.IOException;
+import com.oltpbenchmark.api.Loader;
+import com.oltpbenchmark.benchmarks.tpch.util.CopyUtil;
+import com.oltpbenchmark.types.DatabaseType;
+import org.apache.log4j.Logger;
+
+import java.io.*;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import org.apache.log4j.Logger;
-
-import com.oltpbenchmark.api.Loader;
-import com.oltpbenchmark.api.Loader.LoaderThread;
 
 public class TPCHLoader extends Loader<TPCHBenchmark> {
     private static final Logger LOG = Logger.getLogger(TPCHLoader.class);
@@ -67,12 +64,9 @@ public class TPCHLoader extends Loader<TPCHBenchmark> {
 
     private static Date now;
     private static long lastTimeMS;
-    private static Connection conn;
 
-
-    public TPCHLoader(TPCHBenchmark benchmark, Connection c) {
-        super(benchmark, c);
-        conn =c;
+    public TPCHLoader(TPCHBenchmark benchmark) {
+        super(benchmark);
     }
 
     private static enum CastTypes { LONG, DOUBLE, STRING, DATE };
@@ -162,125 +156,164 @@ public class TPCHLoader extends Loader<TPCHBenchmark> {
         CastTypes.DOUBLE, // s_acctbal
         CastTypes.STRING, // s_comment
     };
-    
-    @Override
-    public List<LoaderThread> createLoaderThreads() throws SQLException {
-        // TODO Auto-generated method stub
-        return null;
-    }
 
-    @Override
-    public void load() throws SQLException {
+    /**
+     * @return true if COPY was successful, false if it wasn't
+     */
+    private boolean loadCopy(Connection conn) {
+        DatabaseType dbType = workConf.getDBType();
+        String[] copySQL = null;
+
+        switch (dbType) {
+            case NOISEPAGE: {
+                copySQL = CopyUtil.copyNOISEPAGE(workConf);
+                break;
+            }
+            case POSTGRES: {
+                copySQL = CopyUtil.copyPOSTGRES(workConf, conn, LOG);
+                break;
+            }
+            case MYSQL: {
+                copySQL = CopyUtil.copyMYSQL(workConf);
+                break;
+            }
+            case MEMSQL: {
+                copySQL = CopyUtil.copyMEMSQL(workConf);
+                break;
+            }
+            default:
+                return false;
+        }
+
         try {
-            customerPrepStmt = conn.prepareStatement("INSERT INTO customer "
-                    + "(c_custkey, c_name, c_address, c_nationkey,"
-                    + " c_phone, c_acctbal, c_mktsegment, c_comment ) "
-                    + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-
-            lineitemPrepStmt = conn.prepareStatement("INSERT INTO lineitem "
-                    + "(l_orderkey, l_partkey, l_suppkey, l_linenumber,"
-                    + " l_quantity, l_extendedprice, l_discount, l_tax,"
-                    + " l_returnflag, l_linestatus, l_shipdate, l_commitdate,"
-                    + " l_receiptdate, l_shipinstruct, l_shipmode, l_comment) "
-                    + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-
-            nationPrepStmt = conn.prepareStatement("INSERT INTO nation "
-                    + "(n_nationkey, n_name, n_regionkey, n_comment) "
-                    + "VALUES (?, ?, ?, ?)");
-
-            ordersPrepStmt = conn.prepareStatement("INSERT INTO orders "
-                    + "(o_orderkey, o_custkey, o_orderstatus, o_totalprice,"
-                    + " o_orderdate, o_orderpriority, o_clerk, o_shippriority,"
-                    + " o_comment) "
-                    + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-
-            partPrepStmt = conn.prepareStatement("INSERT INTO part "
-                    + "(p_partkey, p_name, p_mfgr, p_brand, p_type,"
-                    + " p_size, p_container, p_retailprice, p_comment) "
-                    + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-
-            partsuppPrepStmt = conn.prepareStatement("INSERT INTO partsupp "
-                    + "(ps_partkey, ps_suppkey, ps_availqty, ps_supplycost,"
-                    + " ps_comment) "
-                    + "VALUES (?, ?, ?, ?, ?)");
-
-            regionPrepStmt = conn.prepareStatement("INSERT INTO region "
-                    + " (r_regionkey, r_name, r_comment) "
-                    + "VALUES (?, ?, ?)");
-
-            supplierPrepStmt = conn.prepareStatement("INSERT INTO supplier "
-                    + "(s_suppkey, s_name, s_address, s_nationkey, s_phone,"
-                    + " s_acctbal, s_comment) "
-                    + "VALUES (?, ?, ?, ?, ?, ?, ?)");
-
-        } catch (SQLException se) {
-            LOG.debug(se.getMessage());
-            conn.rollback();
-
+            if (copySQL != null) {
+                // we should support COPY, use it and return
+                Statement stmt = conn.createStatement();
+                for (String sql : copySQL) {
+                    LOG.info(String.format("Executing %s", sql));
+                    stmt.execute(sql);
+                    conn.commit();
+                }
+                LOG.info("Finished loading");
+                return true;
+            } else {
+                LOG.info("No COPY support detected. Loading with INSERT.");
+            }
         } catch (Exception e) {
             e.printStackTrace();
-            conn.rollback();
-        } // end try
-
-        loadHelper();
-        conn.commit();
-    }
-
-    static void truncateTable(String strTable) throws SQLException {
-        LOG.debug("Truncating '" + strTable + "' ...");
-        try {
-            conn.createStatement().execute("DELETE FROM " + strTable);
-            conn.commit();
-        } catch (SQLException se) {
-            LOG.debug(se.getMessage());
-            conn.rollback();
+            LOG.error("Something bad happened. Loading with INSERT.");
         }
+        return false;
     }
 
-    Thread loadCustomers() {
-        return new Thread(new TableLoader("Customer", customerTypes, customerPrepStmt, this));
+    @Override
+    public List<LoaderThread> createLoaderThreads() throws SQLException {
+        List<LoaderThread> threads = new ArrayList<LoaderThread>();
+
+        threads.add(new LoaderThread() {
+            @Override
+            public void load(Connection conn) {
+                if (loadCopy(conn)) {
+                    return;
+                }
+
+                try {
+                    customerPrepStmt = conn.prepareStatement("INSERT INTO customer "
+                            + "(c_custkey, c_name, c_address, c_nationkey,"
+                            + " c_phone, c_acctbal, c_mktsegment, c_comment ) "
+                            + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+
+                    lineitemPrepStmt = conn.prepareStatement("INSERT INTO lineitem "
+                            + "(l_orderkey, l_partkey, l_suppkey, l_linenumber,"
+                            + " l_quantity, l_extendedprice, l_discount, l_tax,"
+                            + " l_returnflag, l_linestatus, l_shipdate, l_commitdate,"
+                            + " l_receiptdate, l_shipinstruct, l_shipmode, l_comment) "
+                            + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+
+                    nationPrepStmt = conn.prepareStatement("INSERT INTO nation "
+                            + "(n_nationkey, n_name, n_regionkey, n_comment) "
+                            + "VALUES (?, ?, ?, ?)");
+
+                    ordersPrepStmt = conn.prepareStatement("INSERT INTO orders "
+                            + "(o_orderkey, o_custkey, o_orderstatus, o_totalprice,"
+                            + " o_orderdate, o_orderpriority, o_clerk, o_shippriority,"
+                            + " o_comment) "
+                            + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+
+                    partPrepStmt = conn.prepareStatement("INSERT INTO part "
+                            + "(p_partkey, p_name, p_mfgr, p_brand, p_type,"
+                            + " p_size, p_container, p_retailprice, p_comment) "
+                            + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+
+                    partsuppPrepStmt = conn.prepareStatement("INSERT INTO partsupp "
+                            + "(ps_partkey, ps_suppkey, ps_availqty, ps_supplycost,"
+                            + " ps_comment) "
+                            + "VALUES (?, ?, ?, ?, ?)");
+
+                    regionPrepStmt = conn.prepareStatement("INSERT INTO region "
+                            + " (r_regionkey, r_name, r_comment) "
+                            + "VALUES (?, ?, ?)");
+
+                    supplierPrepStmt = conn.prepareStatement("INSERT INTO supplier "
+                            + "(s_suppkey, s_name, s_address, s_nationkey, s_phone,"
+                            + " s_acctbal, s_comment) "
+                            + "VALUES (?, ?, ?, ?, ?, ?, ?)");
+
+                    loadHelper(conn);
+                } catch (Exception ex) {
+                    throw new RuntimeException("Failed to load database", ex);
+                }
+            }
+        });
+
+        return (threads);
+
     }
 
-    Thread loadLineItems() {
-        return new Thread(new TableLoader("LineItem", lineitemTypes, lineitemPrepStmt, this));
+    Thread loadCustomers(Connection conn) {
+        return new Thread(new TableLoader(conn,"Customer", customerTypes, customerPrepStmt, this));
     }
 
-    Thread loadNations() {
-        return new Thread(new TableLoader("Nation", nationTypes, nationPrepStmt, this));
+    Thread loadLineItems(Connection conn) {
+        return new Thread(new TableLoader(conn,"LineItem", lineitemTypes, lineitemPrepStmt, this));
     }
 
-    Thread loadOrders() {
-        return new Thread(new TableLoader("Orders", ordersTypes, ordersPrepStmt, this));
+    Thread loadNations(Connection conn) {
+        return new Thread(new TableLoader(conn,"Nation", nationTypes, nationPrepStmt, this));
     }
 
-    Thread loadParts() {
-        return new Thread(new TableLoader("Part", partTypes, partPrepStmt, this));
+    Thread loadOrders(Connection conn) {
+        return new Thread(new TableLoader(conn,"Orders", ordersTypes, ordersPrepStmt, this));
     }
 
-    Thread loadPartSupps() {
-        return new Thread(new TableLoader("PartSupp", partsuppTypes, partsuppPrepStmt, this));
+    Thread loadParts(Connection conn) {
+        return new Thread(new TableLoader(conn,"Part", partTypes, partPrepStmt, this));
     }
 
-    Thread loadRegions() {
-        return new Thread(new TableLoader("Region", regionTypes, regionPrepStmt, this));
+    Thread loadPartSupps(Connection conn) {
+        return new Thread(new TableLoader(conn,"PartSupp", partsuppTypes, partsuppPrepStmt, this));
     }
 
-    Thread loadSuppliers() {
-        return new Thread(new TableLoader("Supplier", supplierTypes, supplierPrepStmt, this));
+    Thread loadRegions(Connection conn) {
+        return new Thread(new TableLoader(conn,"Region", regionTypes, regionPrepStmt, this));
+    }
+
+    Thread loadSuppliers(Connection conn) {
+        return new Thread(new TableLoader(conn,"Supplier", supplierTypes, supplierPrepStmt, this));
     }
 
     protected long totalRows = 0;
 
-    protected long loadHelper() {
+    protected long loadHelper(Connection conn) {
         Thread loaders[] = new Thread[8];
-        loaders[0] = loadCustomers();
-        loaders[1] = loadLineItems();
-        loaders[2] = loadNations();
-        loaders[3] = loadOrders();
-        loaders[4] = loadParts();
-        loaders[5] = loadPartSupps();
-        loaders[6] = loadRegions();
-        loaders[7] = loadSuppliers();
+        loaders[0] = loadCustomers(conn);
+        loaders[1] = loadLineItems(conn);
+        loaders[2] = loadNations(conn);
+        loaders[3] = loadOrders(conn);
+        loaders[4] = loadParts(conn);
+        loaders[5] = loadPartSupps(conn);
+        loaders[6] = loadRegions(conn);
+        loaders[7] = loadSuppliers(conn);
 
         for (int i = 0; i < 8; ++i)
             if (loaders[i] != null)
@@ -306,9 +339,10 @@ public class TPCHLoader extends Loader<TPCHBenchmark> {
 
         private Connection conn;
 
-        TableLoader(String tableName, CastTypes[] types
+        TableLoader(Connection conn, String tableName, CastTypes[] types
                   , PreparedStatement prepStmt, TPCHLoader parent)
         {
+            this.conn = conn;
             this.tableName = tableName;
             this.prepStmt = prepStmt;
             this.types = types;
@@ -343,9 +377,9 @@ public class TPCHLoader extends Loader<TPCHBenchmark> {
         }
         
         private int getFormatGroup(String format){
-            if("csv".equals(format)){
+            if("csv".equals(format)) {
                return  1;
-            }else{
+            } else{
                 return 0;
             }
         }
@@ -357,7 +391,14 @@ public class TPCHLoader extends Loader<TPCHBenchmark> {
             long lastTimeMS = new java.util.Date().getTime();
 
             try {
-                truncateTable(this.tableName.toLowerCase());
+                LOG.debug("Truncating '" + this.tableName.toLowerCase() + "' ...");
+                try {
+                    conn.createStatement().execute("DELETE FROM " + this.tableName.toLowerCase());
+                    conn.commit();
+                } catch (SQLException se) {
+                    LOG.debug(se.getMessage());
+                    conn.rollback();
+                }
             } catch (SQLException e) {
                 LOG.error("Failed to truncate table \""
                         + this.tableName.toLowerCase()
@@ -365,11 +406,7 @@ public class TPCHLoader extends Loader<TPCHBenchmark> {
             }
 
             try {
-                this.conn = DriverManager.getConnection(workConf.getDBConnection(),
-                        workConf.getDBUsername(),
-                        workConf.getDBPassword());
                 this.conn.setAutoCommit(false);
-
                 try {
                     now = new java.util.Date();
                     LOG.debug("\nStart " + tableName + " load @ " + now + "...");
@@ -519,7 +556,6 @@ public class TPCHLoader extends Loader<TPCHBenchmark> {
                 synchronized(parent) {
                     parent.totalRows += recordsRead;
                 }
-                this.conn.close();
             } catch(SQLException e) {
                 LOG.debug(e.getMessage());
             }

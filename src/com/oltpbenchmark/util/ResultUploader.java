@@ -18,8 +18,8 @@ package com.oltpbenchmark.util;
 
 import com.oltpbenchmark.Results;
 import com.oltpbenchmark.api.TransactionType;
-import com.oltpbenchmark.api.collectors.DBParameterCollector;
-import com.oltpbenchmark.api.collectors.DBParameterCollectorGen;
+import com.oltpbenchmark.api.collectors.DBCollector;
+import com.oltpbenchmark.types.DatabaseType;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.configuration.ConfigurationException;
@@ -35,12 +35,11 @@ import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 import org.apache.log4j.Logger;
 
-import java.io.*;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
-import java.util.TimeZone;
-import java.util.TreeMap;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.util.*;
 import java.util.zip.GZIPOutputStream;
 
 public class ResultUploader {
@@ -65,13 +64,15 @@ public class ResultUploader {
     XMLConfiguration expConf;
     Results results;
     CommandLine argsLine;
-    DBParameterCollector collector;
+    DBCollector collector;
 
-    String dbUrl, dbType;
+    String dbUrl;
+    DatabaseType dbType;
     String username, password;
     String benchType;
 //    int windowSize;
     String uploadCode, uploadUrl;
+    String uploadHash;
 
     public ResultUploader(Results r, XMLConfiguration conf, CommandLine argsLine) {
         this.expConf = conf;
@@ -79,7 +80,7 @@ public class ResultUploader {
         this.argsLine = argsLine;
 
         dbUrl = expConf.getString("DBUrl");
-        dbType = expConf.getString("dbtype");
+        dbType = DatabaseType.get(expConf.getString("dbtype"));
         username = expConf.getString("username");
         password = expConf.getString("password");
         benchType = argsLine.getOptionValue("b");
@@ -91,22 +92,23 @@ public class ResultUploader {
 //        }
         uploadCode = expConf.getString("uploadCode");
         uploadUrl = expConf.getString("uploadUrl");
+        uploadHash = argsLine.getOptionValue("uploadHash");
+        uploadHash = uploadHash == null ? "" : uploadHash;
 
-        this.collector = DBParameterCollectorGen.getCollector(dbType, dbUrl, username, password);
+        this.collector = DBCollector.createCollector(dbType, dbUrl, username, password);
         assert(this.collector != null);
     }
     
-    public DBParameterCollector getConfCollector() {
+    public DBCollector getConfCollector() {
         return (this.collector);
     }
 
     public void writeDBParameters(PrintStream os) {
-        String dbConf = collector.collectParameters();
-        os.print(dbConf);
+        this.collector.writeParameters(os);
     }
     
     public void writeDBMetrics(PrintStream os) {
-    	os.print(collector.collectMetrics());
+        this.collector.writeMetrics(os);
     }
 
     public void writeBenchmarkConf(PrintStream os) throws ConfigurationException {
@@ -118,17 +120,17 @@ public class ResultUploader {
     }
 
     public void writeSummary(PrintStream os) {
-    	Map<String, Object> summaryMap = new TreeMap<String, Object>();
+        Map<String, Object> summaryMap = new TreeMap<String, Object>();
         TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
         Date now = new Date();
         summaryMap.put("Current Timestamp (milliseconds)", now.getTime());
-        summaryMap.put("DBMS Type", dbType);
-        summaryMap.put("DBMS Version", collector.collectVersion());
+        summaryMap.put("DBMS Type", dbType.name().toLowerCase());
+        summaryMap.put("DBMS Version", this.collector.getVersion());
         summaryMap.put("Benchmark Type", benchType);
         summaryMap.put("Latency Distribution", results.latencyDistribution.toMap());
         summaryMap.put("Throughput (requests/second)", results.getRequestsPerSecond());
         for (String field: BENCHMARK_KEY_FIELD) {
-        	summaryMap.put(field, expConf.getString(field));
+            summaryMap.put(field, expConf.getString(field));
         }
         os.println(JSONUtil.format(JSONUtil.toJSONString(summaryMap)));
     }
@@ -171,6 +173,7 @@ public class ResultUploader {
 
             HttpEntity reqEntity = MultipartEntityBuilder.create()
                     .addTextBody("upload_code", uploadCode)
+                    .addTextBody("upload_hash", uploadHash)
                     .addPart("sample_data", new FileBody(samplesFile))
                     .addPart("raw_data", new FileBody(csvDataFile))
                     .addPart("db_parameters_data", new FileBody(paramsFile))

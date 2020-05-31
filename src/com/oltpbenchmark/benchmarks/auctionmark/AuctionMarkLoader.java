@@ -16,50 +16,28 @@
 
 package com.oltpbenchmark.benchmarks.auctionmark;
 
+import com.oltpbenchmark.api.Loader;
+import com.oltpbenchmark.benchmarks.auctionmark.util.*;
+import com.oltpbenchmark.catalog.Column;
+import com.oltpbenchmark.catalog.Table;
+import com.oltpbenchmark.util.*;
+import com.oltpbenchmark.util.RandomDistribution.Flat;
+import com.oltpbenchmark.util.RandomDistribution.Zipf;
+import org.apache.commons.collections15.CollectionUtils;
+import org.apache.commons.collections15.map.ListOrderedMap;
+import org.apache.log4j.Logger;
+
 import java.io.File;
 import java.lang.reflect.Field;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
-
-import org.apache.commons.collections15.CollectionUtils;
-import org.apache.commons.collections15.map.ListOrderedMap;
-import org.apache.log4j.Logger;
-
-import com.oltpbenchmark.api.Loader;
-import com.oltpbenchmark.benchmarks.auctionmark.util.Category;
-import com.oltpbenchmark.benchmarks.auctionmark.util.CategoryParser;
-import com.oltpbenchmark.benchmarks.auctionmark.util.GlobalAttributeGroupId;
-import com.oltpbenchmark.benchmarks.auctionmark.util.GlobalAttributeValueId;
-import com.oltpbenchmark.benchmarks.auctionmark.util.ItemId;
-import com.oltpbenchmark.benchmarks.auctionmark.util.ItemStatus;
-import com.oltpbenchmark.benchmarks.auctionmark.util.LoaderItemInfo;
-import com.oltpbenchmark.benchmarks.auctionmark.util.UserId;
-import com.oltpbenchmark.benchmarks.auctionmark.util.UserIdGenerator;
-import com.oltpbenchmark.catalog.Column;
-import com.oltpbenchmark.catalog.Table;
-import com.oltpbenchmark.util.CollectionUtil;
-import com.oltpbenchmark.util.CompositeId;
-import com.oltpbenchmark.util.Histogram;
-import com.oltpbenchmark.util.Pair;
-import com.oltpbenchmark.util.RandomDistribution.Flat;
-import com.oltpbenchmark.util.RandomDistribution.Zipf;
-import com.oltpbenchmark.util.SQLUtil;
 
 /**
  * @author pavlo
@@ -86,6 +64,8 @@ public class AuctionMarkLoader extends Loader<AuctionMarkBenchmark> {
 
     private final Histogram<String> tableSizes = new Histogram<String>();
 
+    private final File category_file;
+
     private boolean fail = false;
 
     // -----------------------------------------------------------------
@@ -97,13 +77,13 @@ public class AuctionMarkLoader extends Loader<AuctionMarkBenchmark> {
      * 
      * @param args
      */
-    public AuctionMarkLoader(AuctionMarkBenchmark benchmark, Connection conn) {
-        super(benchmark, conn);
+    public AuctionMarkLoader(AuctionMarkBenchmark benchmark) {
+        super(benchmark);
 
         // BenchmarkProfile
         this.profile = new AuctionMarkProfile(benchmark, benchmark.getRandomGenerator());
 
-        File category_file = new File(benchmark.getDataDir().getAbsolutePath() + "/table.category.gz");
+        this.category_file = new File(benchmark.getDataDir().getAbsolutePath() + "/table.category.gz");
 
         try {
             // ---------------------------
@@ -156,7 +136,6 @@ public class AuctionMarkLoader extends Loader<AuctionMarkBenchmark> {
     // -----------------------------------------------------------------
     // LOADING METHODS
     // -----------------------------------------------------------------
-
     private class CountdownLoaderThread extends LoaderThread {
         private final AbstractTableGenerator generator;
         private final CountDownLatch latch;
@@ -985,7 +964,8 @@ public class AuctionMarkLoader extends Loader<AuctionMarkBenchmark> {
         public ItemGenerator() throws SQLException {
             super(AuctionMarkConstants.TABLENAME_ITEM,
                   AuctionMarkConstants.TABLENAME_USERACCT,
-                  AuctionMarkConstants.TABLENAME_USERACCT, AuctionMarkConstants.TABLENAME_CATEGORY);
+                  AuctionMarkConstants.TABLENAME_USERACCT,
+                  AuctionMarkConstants.TABLENAME_CATEGORY);
         }
         
         @Override
@@ -1163,7 +1143,8 @@ public class AuctionMarkLoader extends Loader<AuctionMarkBenchmark> {
         public ItemAttributeGenerator() throws SQLException {
             super(AuctionMarkConstants.TABLENAME_ITEM_ATTRIBUTE,
                   AuctionMarkConstants.TABLENAME_ITEM,
-                  AuctionMarkConstants.TABLENAME_GLOBAL_ATTRIBUTE_GROUP, AuctionMarkConstants.TABLENAME_GLOBAL_ATTRIBUTE_VALUE);
+                  AuctionMarkConstants.TABLENAME_GLOBAL_ATTRIBUTE_GROUP,
+                  AuctionMarkConstants.TABLENAME_GLOBAL_ATTRIBUTE_VALUE);
         }
         @Override
         public short getElementCounter(LoaderItemInfo itemInfo) {

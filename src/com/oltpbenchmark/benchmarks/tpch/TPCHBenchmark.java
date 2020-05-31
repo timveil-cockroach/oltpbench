@@ -26,20 +26,17 @@
  
 package com.oltpbenchmark.benchmarks.tpch;
 
-import java.io.IOException;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
-
-import org.apache.log4j.Logger;
-
 import com.oltpbenchmark.WorkloadConfiguration;
 import com.oltpbenchmark.api.BenchmarkModule;
 import com.oltpbenchmark.api.Loader;
 import com.oltpbenchmark.api.Worker;
-
 import com.oltpbenchmark.benchmarks.tpch.procedures.Q1;
+import org.apache.log4j.Logger;
+
+import java.io.IOException;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class TPCHBenchmark extends BenchmarkModule {
     private static final Logger LOG = Logger.getLogger(TPCHBenchmark.class);
@@ -70,8 +67,8 @@ public class TPCHBenchmark extends BenchmarkModule {
 	}
 
 	@Override
-	protected Loader<TPCHBenchmark> makeLoaderImpl(Connection conn) throws SQLException {
-		return new TPCHLoader(this, conn);
+	protected Loader<TPCHBenchmark> makeLoaderImpl() throws SQLException {
+		return new TPCHLoader(this);
 	}
 
 } 

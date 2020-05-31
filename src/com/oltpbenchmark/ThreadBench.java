@@ -17,21 +17,6 @@
 
 package com.oltpbenchmark;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.NoSuchElementException;
-import java.util.Set;
-
-import org.apache.commons.collections15.map.ListOrderedMap;
-import org.apache.log4j.Logger;
-
 import com.oltpbenchmark.LatencyRecord.Sample;
 import com.oltpbenchmark.api.BenchmarkModule;
 import com.oltpbenchmark.api.TransactionType;
@@ -40,6 +25,13 @@ import com.oltpbenchmark.types.State;
 import com.oltpbenchmark.util.Histogram;
 import com.oltpbenchmark.util.QueueLimitException;
 import com.oltpbenchmark.util.StringUtil;
+import org.apache.commons.collections15.map.ListOrderedMap;
+import org.apache.log4j.Logger;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.*;
+import java.util.Map.Entry;
 
 public class ThreadBench implements Thread.UncaughtExceptionHandler {
     private static final Logger LOG = Logger.getLogger(ThreadBench.class);
@@ -194,18 +186,30 @@ public class ThreadBench implements Thread.UncaughtExceptionHandler {
         }
     }
 
+    /**
+     * This method blocks until all of the worker threads finish execution
+     * @param workerThreads
+     * @return
+     * @throws InterruptedException
+     */
     private int finalizeWorkers(ArrayList<Thread> workerThreads) throws InterruptedException {
         assert testState.getState() == State.DONE || testState.getState() == State.EXIT;
         int requests = 0;
 
-        new WatchDogThread().start();
+        WatchDogThread watchdog = new WatchDogThread();
+        watchdog.start();
 
-        for (int i = 0; i < workerThreads.size(); ++i) {
+        for (int i = 0, cnt = workerThreads.size(); i < cnt; i++) {
+            Thread t = workerThreads.get(i);
+            assert(t != null);
+            Worker<? extends BenchmarkModule> w = this.workers.get(i);
+            assert(w != null);
+            
 
             // FIXME not sure this is the best solution... ensure we don't hang
             // forever, however we might ignore 
             // problems
-            workerThreads.get(i).join(60000); // wait for 60second for threads
+            t.join(60000); // wait for 60second for threads
                                               // to terminate... hands otherwise
 
             /*
@@ -215,8 +219,8 @@ public class ThreadBench implements Thread.UncaughtExceptionHandler {
              * catch (InterruptedException e) { } }
              */
 
-            requests += workers.get(i).getRequests();
-            workers.get(i).tearDown(false);
+            requests += w.getRequests();
+            w.tearDown(false);
         }
         testState = null;
         return requests;
@@ -227,11 +231,13 @@ public class ThreadBench implements Thread.UncaughtExceptionHandler {
             this.setDaemon(true);
         }
 
+        private boolean stop = false;
+        
         @Override
         public void run() {
             Map<String, Object> m = new ListOrderedMap<String, Object>();
             LOG.info("Starting WatchDogThread");
-            while (true) {
+            while (this.stop == false) {
                 try {
                     Thread.sleep(20000);
                 } catch (InterruptedException ex) {
@@ -490,7 +496,9 @@ public class ThreadBench implements Thread.UncaughtExceptionHandler {
                 // Time to quit.
                 break;
             }
-        }
+        } // WHILE (main loop)
+        LOG.info("Attempting to stop worker threads and collect measurements");
+        
 
         try {
             int requests = finalizeWorkers(this.workerThreads);

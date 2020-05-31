@@ -16,14 +16,14 @@
 
 package com.oltpbenchmark;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.LinkedList;
-
 import com.oltpbenchmark.types.State;
 import com.oltpbenchmark.util.QueueLimitException;
 import org.apache.log4j.Logger;
+
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
 
 /**
  * This class is used to share a state among the workers of a single
@@ -119,7 +119,7 @@ public class WorkloadState {
    }
    
    /** Called by ThreadPoolThreads when waiting for work. */
-    public SubmittedProcedure fetchWork() {
+    public SubmittedProcedure fetchWork(int workerId) {
         synchronized(this) {
             if (currentPhase != null && currentPhase.isSerial()) {
                 ++workersWaiting;
@@ -136,7 +136,7 @@ public class WorkloadState {
                     return null;
 
                 ++workersWorking;
-                return new SubmittedProcedure(currentPhase.chooseTransaction(getGlobalState() == State.COLD_QUERY));
+                return new SubmittedProcedure(currentPhase.chooseTransaction(getGlobalState() == State.COLD_QUERY, workerId));
             }
         }
 
@@ -147,7 +147,7 @@ public class WorkloadState {
             synchronized(this) {
                 ++workersWorking;
             }
-            return new SubmittedProcedure(currentPhase.chooseTransaction(getGlobalState() == State.COLD_QUERY));
+            return new SubmittedProcedure(currentPhase.chooseTransaction(getGlobalState() == State.COLD_QUERY, workerId));
         }
 
         synchronized(this) {

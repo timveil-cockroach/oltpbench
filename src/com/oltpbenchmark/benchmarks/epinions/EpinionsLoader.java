@@ -16,6 +16,14 @@
 
 package com.oltpbenchmark.benchmarks.epinions;
 
+import com.oltpbenchmark.api.Loader;
+import com.oltpbenchmark.catalog.Table;
+import com.oltpbenchmark.distributions.ScrambledZipfianGenerator;
+import com.oltpbenchmark.distributions.ZipfianGenerator;
+import com.oltpbenchmark.util.SQLUtil;
+import com.oltpbenchmark.util.TextGenerator;
+import org.apache.log4j.Logger;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -23,15 +31,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
-
-import org.apache.log4j.Logger;
-
-import com.oltpbenchmark.api.Loader;
-import com.oltpbenchmark.catalog.Table;
-import com.oltpbenchmark.distributions.ScrambledZipfianGenerator;
-import com.oltpbenchmark.distributions.ZipfianGenerator;
-import com.oltpbenchmark.util.SQLUtil;
-import com.oltpbenchmark.util.TextGenerator;
 
 public class EpinionsLoader extends Loader<EpinionsBenchmark> {
 
@@ -42,8 +41,8 @@ public class EpinionsLoader extends Loader<EpinionsBenchmark> {
     private final long num_reviews;
     private final int num_trust;
 
-    public EpinionsLoader(EpinionsBenchmark benchmark, Connection c) {
-        super(benchmark, c);
+    public EpinionsLoader(EpinionsBenchmark benchmark) {
+        super(benchmark);
         this.num_users = (int) Math.round(EpinionsConstants.NUM_USERS * this.scaleFactor);
         this.num_items = (int) Math.round(EpinionsConstants.NUM_ITEMS * this.scaleFactor);
         this.num_reviews = (int) Math.round(EpinionsConstants.REVIEW * this.scaleFactor);

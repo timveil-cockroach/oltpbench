@@ -16,6 +16,11 @@
 
 package com.oltpbenchmark.benchmarks.sibench;
 
+import com.oltpbenchmark.api.Loader;
+import com.oltpbenchmark.catalog.Table;
+import com.oltpbenchmark.util.SQLUtil;
+import org.apache.log4j.Logger;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -23,18 +28,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-import org.apache.log4j.Logger;
-
-import com.oltpbenchmark.api.Loader;
-import com.oltpbenchmark.catalog.Table;
-import com.oltpbenchmark.util.SQLUtil;
-
 public class SILoader extends Loader<SIBenchmark> {
     private static final Logger LOG = Logger.getLogger(SILoader.class);
     private final int num_record;
 
-    public SILoader(SIBenchmark benchmark, Connection c) {
-        super(benchmark, c);
+    public SILoader(SIBenchmark benchmark) {
+        super(benchmark);
         this.num_record = (int) Math.round(SIConstants.RECORD_COUNT * this.scaleFactor);
         if (LOG.isDebugEnabled()) {
             LOG.debug("# of RECORDS:  " + this.num_record);

@@ -16,24 +16,18 @@
 
 package com.oltpbenchmark.benchmarks.linkbench;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
-import java.util.List;
-
+import com.oltpbenchmark.api.Loader;
 import org.apache.log4j.Logger;
 
-import com.oltpbenchmark.api.Loader;
-import com.oltpbenchmark.catalog.Table;
-import com.oltpbenchmark.util.SQLUtil;
-import com.oltpbenchmark.util.TextGenerator;
+import java.sql.SQLException;
+import java.util.List;
 
 public class LinkBenchLoader extends Loader<LinkBenchBenchmark> {
     private static final Logger LOG = Logger.getLogger(LinkBenchLoader.class);
     private final int num_record;
 
-    public LinkBenchLoader(LinkBenchBenchmark benchmark, Connection c) {
-        super(benchmark, c);
+    public LinkBenchLoader(LinkBenchBenchmark benchmark) {
+        super(benchmark);
         this.num_record = (int) Math.round(this.scaleFactor - LinkBenchConstants.START_ID + 1);
         if (LOG.isDebugEnabled()) {
             LOG.debug("# of RECORDS:  " + this.num_record);
@@ -42,13 +36,9 @@ public class LinkBenchLoader extends Loader<LinkBenchBenchmark> {
     
     @Override
     public List<LoaderThread> createLoaderThreads() throws SQLException {
-        // TODO Auto-generated method stub
+        // NEEDS PORTING
+        // TODO https://github.com/mdcallag/linkbench/blob/master/src/main/java/com/facebook/LinkBench/LinkBenchLoad.java#L99
         return null;
     }
 
-    @Override
-    public void load() throws SQLException {
-        // NEEDS PORTING
-        // TODO https://github.com/mdcallag/linkbench/blob/master/src/main/java/com/facebook/LinkBench/LinkBenchLoad.java#L99
-    }
 }

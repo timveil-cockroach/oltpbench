@@ -17,13 +17,6 @@
 
 package com.oltpbenchmark.benchmarks.twitter;
 
-import java.io.IOException;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-
 import com.oltpbenchmark.WorkloadConfiguration;
 import com.oltpbenchmark.api.BenchmarkModule;
 import com.oltpbenchmark.api.Loader;
@@ -33,6 +26,12 @@ import com.oltpbenchmark.benchmarks.twitter.procedures.GetFollowers;
 import com.oltpbenchmark.benchmarks.twitter.util.TraceTransactionGenerator;
 import com.oltpbenchmark.benchmarks.twitter.util.TransactionSelector;
 import com.oltpbenchmark.benchmarks.twitter.util.TwitterOperation;
+
+import java.io.IOException;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 public class TwitterBenchmark extends BenchmarkModule {
 	
@@ -66,7 +65,7 @@ public class TwitterBenchmark extends BenchmarkModule {
 	}
 	
 	@Override
-	protected Loader<TwitterBenchmark> makeLoaderImpl(Connection conn) throws SQLException {
-		return new TwitterLoader(this, conn);
+	protected Loader<TwitterBenchmark> makeLoaderImpl() throws SQLException {
+		return new TwitterLoader(this);
 	}
 }

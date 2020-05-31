@@ -16,17 +16,16 @@
 
 package com.oltpbenchmark.benchmarks.voter;
 
-import java.io.IOException;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
-
 import com.oltpbenchmark.WorkloadConfiguration;
 import com.oltpbenchmark.api.BenchmarkModule;
 import com.oltpbenchmark.api.Loader;
 import com.oltpbenchmark.api.Worker;
 import com.oltpbenchmark.benchmarks.voter.procedures.Vote;
+
+import java.io.IOException;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class VoterBenchmark extends BenchmarkModule {
 
@@ -47,8 +46,8 @@ public class VoterBenchmark extends BenchmarkModule {
     }
 
     @Override
-    protected Loader<VoterBenchmark> makeLoaderImpl(Connection conn) throws SQLException {
-        return new VoterLoader(this, conn);
+    protected Loader<VoterBenchmark> makeLoaderImpl() throws SQLException {
+        return new VoterLoader(this);
     }
 
     @Override

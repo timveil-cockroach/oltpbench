@@ -16,27 +16,24 @@
 
 package com.oltpbenchmark.benchmarks.linkbench;
 
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Properties;
-import java.util.Random;
-
-import org.apache.log4j.Logger;
-
 import com.oltpbenchmark.WorkloadConfiguration;
 import com.oltpbenchmark.api.BenchmarkModule;
 import com.oltpbenchmark.api.Loader;
 import com.oltpbenchmark.api.Worker;
 import com.oltpbenchmark.benchmarks.linkbench.procedures.AddNode;
-import com.oltpbenchmark.benchmarks.linkbench.LinkBenchConstants;
 import com.oltpbenchmark.benchmarks.linkbench.utils.ConfigUtil;
+import org.apache.log4j.Logger;
+
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Properties;
+import java.util.Random;
 
 
 public class LinkBenchBenchmark extends BenchmarkModule {
@@ -63,8 +60,8 @@ public class LinkBenchBenchmark extends BenchmarkModule {
     }
 
     @Override
-    protected Loader<LinkBenchBenchmark> makeLoaderImpl(Connection conn) throws SQLException {
-        return new LinkBenchLoader(this, conn);
+    protected Loader<LinkBenchBenchmark> makeLoaderImpl() throws SQLException {
+        return new LinkBenchLoader(this);
     }
 
     @Override

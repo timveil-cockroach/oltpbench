@@ -16,47 +16,52 @@
 
 package com.oltpbenchmark.benchmarks.jpab;
 
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.util.List;
+import com.oltpbenchmark.api.Loader;
+import com.oltpbenchmark.benchmarks.jpab.tests.BasicTest;
+import com.oltpbenchmark.benchmarks.jpab.tests.Test;
+import org.apache.log4j.Logger;
 
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.Persistence;
-
-import com.oltpbenchmark.api.Loader;
-import com.oltpbenchmark.api.Loader.LoaderThread;
-import com.oltpbenchmark.benchmarks.jpab.tests.BasicTest;
-import com.oltpbenchmark.benchmarks.jpab.tests.Test;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class JPABLoader extends Loader<JPABBenchmark> {
+    private static final Logger LOG = Logger.getLogger(JPABLoader.class);
+
 
     String persistanceUnit;
-    public JPABLoader(JPABBenchmark benchmark, Connection conn, String persistanceUnit) throws SQLException {
-        super(benchmark, conn);
+    public JPABLoader(JPABBenchmark benchmark, String persistanceUnit) throws SQLException {
+        super(benchmark);
         this.persistanceUnit=persistanceUnit;
     }
     
     @Override
     public List<LoaderThread> createLoaderThreads() throws SQLException {
-        // TODO Auto-generated method stub
-        return null;
-    }
+        List<LoaderThread> threads = new ArrayList<LoaderThread>();
 
-    @Override
-    public void load() throws SQLException {
-        int objectCount= (int)this.workConf.getScaleFactor();
-        EntityManagerFactory emf = Persistence.createEntityManagerFactory(persistanceUnit);
-        EntityManager em = emf.createEntityManager();
-        Test test=new BasicTest();
-        test.setBatchSize(10);
-        test.setEntityCount(objectCount);
-        test.buildInventory(objectCount); 
-        while (test.getActionCount() < objectCount) {
-            System.out.println(test.getActionCount()+ " % "+objectCount);
-            test.persist(em);
-        }
-        test.clearInventory();
+        threads.add(new LoaderThread() {
+            @Override
+            public void load(Connection conn) {
+                int objectCount = (int)workConf.getScaleFactor();
+                EntityManagerFactory emf = Persistence.createEntityManagerFactory(persistanceUnit);
+                EntityManager em = emf.createEntityManager();
+                Test test=new BasicTest();
+                test.setBatchSize(10);
+                test.setEntityCount(objectCount);
+                test.buildInventory(objectCount);
+                while (test.getActionCount() < objectCount) {
+                    LOG.debug(test.getActionCount()+ " % "+objectCount);
+                    test.persist(em);
+                }
+                test.clearInventory();
+            }
+        });
+
+        return (threads);
     }
 
 }

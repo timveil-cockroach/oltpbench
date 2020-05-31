@@ -17,22 +17,13 @@
 
 package com.oltpbenchmark;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.PrintStream;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
-
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.CommandLineParser;
-import org.apache.commons.cli.HelpFormatter;
-import org.apache.commons.cli.Options;
-import org.apache.commons.cli.ParseException;
-import org.apache.commons.cli.PosixParser;
+import com.oltpbenchmark.api.BenchmarkModule;
+import com.oltpbenchmark.api.TransactionType;
+import com.oltpbenchmark.api.TransactionTypes;
+import com.oltpbenchmark.api.Worker;
+import com.oltpbenchmark.types.DatabaseType;
+import com.oltpbenchmark.util.*;
+import org.apache.commons.cli.*;
 import org.apache.commons.collections15.map.ListOrderedMap;
 import org.apache.commons.configuration.ConfigurationException;
 import org.apache.commons.configuration.SubnodeConfiguration;
@@ -40,18 +31,10 @@ import org.apache.commons.configuration.XMLConfiguration;
 import org.apache.commons.configuration.tree.xpath.XPathExpressionEngine;
 import org.apache.log4j.Logger;
 
-import com.oltpbenchmark.api.BenchmarkModule;
-import com.oltpbenchmark.api.TransactionType;
-import com.oltpbenchmark.api.TransactionTypes;
-import com.oltpbenchmark.api.Worker;
-import com.oltpbenchmark.types.DatabaseType;
-import com.oltpbenchmark.util.ClassUtil;
-import com.oltpbenchmark.util.FileUtil;
-import com.oltpbenchmark.util.QueueLimitException;
-import com.oltpbenchmark.util.ResultUploader;
-import com.oltpbenchmark.util.StringBoxUtil;
-import com.oltpbenchmark.util.StringUtil;
-import com.oltpbenchmark.util.TimeUtil;
+import java.io.File;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.util.*;
 
 public class DBWorkload {
     private static final Logger LOG = Logger.getLogger(DBWorkload.class);
@@ -129,6 +112,11 @@ public class DBWorkload {
                 "upload",
                 true,
                 "Upload the result");
+        options.addOption(
+                null,
+                "uploadHash",
+                true,
+                "git hash to be associated with the upload");
 
         options.addOption("v", "verbose", false, "Display Messages");
         options.addOption("h", "help", false, "Print this help");
@@ -140,6 +128,7 @@ public class DBWorkload {
         options.addOption("t", "timestamp", false, "Each result file is prepended with a timestamp for the beginning of the experiment");
         options.addOption("ts", "tracescript", true, "Script of transactions to execute");
         options.addOption(null, "histograms", false, "Print txn histograms");
+        options.addOption("jh", "json-histograms", true, "Export histograms to JSON file");
         options.addOption(null, "dialects-export", true, "Export benchmark SQL to a dialects file");
         options.addOption(null, "output-raw", true, "Output raw data");
         options.addOption(null, "output-samples", true, "Output sample data");
@@ -404,10 +393,11 @@ public class DBWorkload {
                 if(arrive.toUpperCase().equals("POISSON"))
                     arrival=Phase.Arrival.POISSON;
                 
-                // We now have the option to run all queries exactly once in
-                // a serial (rather than random) order.
+                // If serial is enabled then run all queries exactly once in serial (rather than
+                // random) order
                 String serial_string;
-                serial_string = work.getString("serial", "false");
+                serial_string = work.getString("serial[not(@bench)]", "false");
+                serial_string = work.getString("serial" + pluginTest, serial_string);
                 if (serial_string.equals("true")) {
                     serial = true;
                 }
@@ -415,7 +405,8 @@ public class DBWorkload {
                     serial = false;
                 }
                 else {
-                    LOG.fatal("Serial string should be either 'true' or 'false'.");
+                    LOG.fatal(String.format("Invalid string for serial: '%s'. Serial string must be 'true' or 'false'",
+                            serial_string));
                     System.exit(-1);
                 }
 
@@ -426,15 +417,9 @@ public class DBWorkload {
                 int activeTerminals;
                 activeTerminals = work.getInt("active_terminals[not(@bench)]", terminals);
                 activeTerminals = work.getInt("active_terminals" + pluginTest, activeTerminals);
-                // If using serial, we should have only one terminal
-                if (serial && activeTerminals != 1) {
-                    LOG.warn("Serial ordering is enabled, so # of active terminals is clamped to 1.");
-                    activeTerminals = 1;
-                }
                 if (activeTerminals > terminals) {
-                    LOG.error(String.format("Configuration error in work %d: " +
-                                            "Number of active terminals is bigger than the total number of terminals",
-                              i));
+                    LOG.error(String.format("Configuration error in work %d: "
+                            + "Number of active terminals is bigger than the total number of terminals", i));
                     System.exit(-1);
                 }
 
@@ -445,10 +430,17 @@ public class DBWorkload {
                     LOG.info("Running a script; ignoring timer, serial, and weight settings.");
                 }
                 else if (!timed) {
-                    if (serial)
+                    if (serial) {
+                        if (activeTerminals > 1) {
+                            // For serial executions, we usually want only one terminal, but not always!
+                            // (e.g. the CHBenCHmark)
+                            LOG.warn("\n" + StringBoxUtil.heavyBox(String.format(
+                                    "WARNING: Serial execution is enabled but the number of active terminals[=%d] > 1.\nIs this intentional??",
+                                    activeTerminals)));
+                        }
                         LOG.info("Timer disabled for serial run; will execute"
                                  + " all queries exactly once.");
-                    else {
+                    } else {
                         LOG.fatal("Must provide positive time bound for"
                                   + " non-serial executions. Either provide"
                                   + " a valid time or enable serial mode.");
@@ -545,7 +537,9 @@ public class DBWorkload {
         // Execute Loader
         if (isBooleanOptionSet(argsLine, "load")) {
             for (BenchmarkModule benchmark : benchList) {
-                LOG.info("Loading data into " + benchmark.getBenchmarkName().toUpperCase() + " database...");
+                LOG.info(String.format("Loading data into %s database with %d threads...",
+                                       benchmark.getBenchmarkName().toUpperCase(),
+                                       benchmark.getWorkloadConfiguration().getLoaderThreads()));
                 runLoader(benchmark, verbose);
                 LOG.info("Finished!");
                 LOG.info(SINGLE_LINE);
@@ -580,19 +574,13 @@ public class DBWorkload {
 
             // WRITE OUTPUT
             writeOutputs(r, activeTXTypes, argsLine, xmlConfig);
-            
-            // WRITE HISTOGRAMS
-            if (argsLine.hasOption("histograms")) {
-                writeHistograms(r);
-            }
-
 
         } else {
             LOG.info("Skipping benchmark workload execution");
         }
     }
     
-    private static void writeHistograms(Results r) {
+    private static String writeHistograms(Results r) {
         StringBuilder sb = new StringBuilder();
         
         sb.append(StringUtil.bold("Completed Transactions:"))
@@ -620,9 +608,16 @@ public class DBWorkload {
               .append("\n")
               .append(r.getTransactionAbortMessageHistogram());
         
-        LOG.info(SINGLE_LINE);
-        LOG.info("Workload Histograms:\n" + sb.toString());
-        LOG.info(SINGLE_LINE);
+        return (sb.toString());
+    }
+    
+    private static String writeJSONHistograms(Results r) {
+        Map<String, JSONSerializable> map = new HashMap<>();
+        map.put("completed", r.getTransactionSuccessHistogram());
+        map.put("aborted", r.getTransactionAbortHistogram());
+        map.put("rejected", r.getTransactionRetryHistogram());
+        map.put("unexpected", r.getTransactionErrorHistogram());
+        return JSONUtil.toJSONString(map);
     }
     
         
@@ -740,7 +735,7 @@ public class DBWorkload {
         if (argsLine.hasOption("s")) {
             nextName = FileUtil.getNextFilename(FileUtil.joinPath(outputDirectory, baseFile + ".res"));
             ps = new PrintStream(new File(nextName));
-            LOG.info("Output into file: " + nextName);
+            LOG.info("Output throughput samples into file: " + nextName);
             
             int windowSize = Integer.parseInt(argsLine.getOptionValue("s"));
             LOG.info("Grouped into Buckets of " + windowSize + " seconds");
@@ -764,6 +759,21 @@ public class DBWorkload {
         } else  {
             LOG.warn("No bucket size specified");
         }
+        
+        // WRITE HISTOGRAMS
+        if (argsLine.hasOption("histograms")) {
+            String histogram_result = writeHistograms(r);
+            LOG.info(SINGLE_LINE);
+            LOG.info("Workload Histograms:\n" + histogram_result);
+            LOG.info(SINGLE_LINE);
+        }
+        if (argsLine.hasOption("json-histograms")) {
+            String histogram_json = writeJSONHistograms(r);
+            String fileName = argsLine.getOptionValue("json-histograms");
+            FileUtil.writeStringToFile(new File(fileName), histogram_json);
+            LOG.info("Histograms JSON Data: " + fileName);
+        }
+        
         
         if (ps != null) ps.close();
         if (rs != null) rs.close();

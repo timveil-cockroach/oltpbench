@@ -16,14 +16,6 @@
 
 package com.oltpbenchmark.benchmarks.wikipedia;
 
-import java.io.IOException;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
-
-import org.apache.log4j.Logger;
-
 import com.oltpbenchmark.WorkloadConfiguration;
 import com.oltpbenchmark.api.BenchmarkModule;
 import com.oltpbenchmark.api.Loader;
@@ -32,6 +24,12 @@ import com.oltpbenchmark.benchmarks.wikipedia.data.RevisionHistograms;
 import com.oltpbenchmark.benchmarks.wikipedia.procedures.AddWatchList;
 import com.oltpbenchmark.util.RandomDistribution.FlatHistogram;
 import com.oltpbenchmark.util.TextGenerator;
+import org.apache.log4j.Logger;
+
+import java.io.IOException;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class WikipediaBenchmark extends BenchmarkModule {
     private static final Logger LOG = Logger.getLogger(WikipediaBenchmark.class);
@@ -114,8 +112,8 @@ public class WikipediaBenchmark extends BenchmarkModule {
         return workers;
     }
 
-    @Override
-    protected Loader<WikipediaBenchmark> makeLoaderImpl(Connection conn) throws SQLException {
-        return new WikipediaLoader(this, conn);
-    }
+	@Override
+	protected Loader<WikipediaBenchmark> makeLoaderImpl() throws SQLException {
+		return new WikipediaLoader(this);
+	}
 }
