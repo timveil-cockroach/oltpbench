@@ -76,6 +76,10 @@ public abstract class Loader<T extends BenchmarkModule> {
          * @throws SQLException
          */
         public abstract void load(Connection conn) throws SQLException;
+
+        public Connection getConnection() {
+            return conn;
+        }
         
     }
     
